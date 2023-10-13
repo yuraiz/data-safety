@@ -15,7 +15,7 @@ pub(super) fn substitute(input: u32, tables: [[u8; 16]; 8]) -> u32 {
         let first_half = (*byte >> 4) & 0b1111;
         let last_half = *byte & 0b1111;
 
-        *byte = (tables[i][first_half as usize] << 4) | tables[i * 2][last_half as usize] & 0b1111
+        *byte = (tables[i][first_half as usize] << 4) | tables[i * 2][last_half as usize]
     }
     u32::from_le_bytes(bytes)
 }
