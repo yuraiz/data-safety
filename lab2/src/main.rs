@@ -43,7 +43,7 @@ fn main() -> Result<()> {
 
         let mut buff = [0u8; 32];
 
-        key_file.read(&mut buff)?;
+        key_file.read_exact(&mut buff)?;
 
         buff.chunks_exact(4)
             .map(|c| u32::from_le_bytes(c.try_into().unwrap()))
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
 
         prev = transform_func(prev, &mut buff, key);
 
-        out_file.write(buff.as_ref())?;
+        out_file.write_all(buff.as_ref())?;
     }
 
     out_file.set_len(len)?;

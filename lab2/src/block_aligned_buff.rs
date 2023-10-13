@@ -14,9 +14,9 @@ impl BlockAlignedBuff {
     }
 
     pub fn read_bytes<R: std::io::Read>(&mut self, read: &mut R) -> std::io::Result<usize> {
-        let mut bytes = unsafe { self.buff.align_to_mut().1 };
+        let bytes = unsafe { self.buff.align_to_mut().1 };
 
-        let len = read.read(&mut bytes)?;
+        let len = read.read(bytes)?;
 
         if (len % 16) != 0 {
             bytes[len..(len + 16 - len % 16)].fill(0);

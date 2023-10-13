@@ -4,6 +4,7 @@ use crate::transform::wrapping::*;
 
 use crate::misc::{u128_to_wrapping_u32, wrapping_u32_to_u128};
 
+#[allow(unused)]
 pub fn decrypt(word: u128, key: [u32; 8]) -> u128 {
     let [mut a, mut b, mut c, mut d] = u128_to_wrapping_u32(word);
     let mut e;
