@@ -13,7 +13,6 @@ impl BlockAlignedBuff {
         Self { buff, filled: 0 }
     }
 
-    #[inline(never)]
     pub fn read_bytes<R: std::io::Read>(&mut self, read: &mut R) -> std::io::Result<usize> {
         let mut bytes = unsafe { self.buff.align_to_mut().1 };
 
