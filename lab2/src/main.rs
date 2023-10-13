@@ -60,20 +60,7 @@ fn main() -> Result<()> {
         gamma_crypt
     };
 
-    let len = if args.decrypt {
-        let mut buff = [0; 8];
-        file.read_exact(&mut buff)?;
-        u64::from_le_bytes(buff)
-    } else {
-        out_file.write(
-            &file
-                .metadata()
-                .map(|m| m.len())
-                .unwrap_or_default()
-                .to_le_bytes(),
-        )?;
-        file.metadata().map(|m| m.len()).unwrap_or(MAX_BUFF_SIZE)
-    };
+    let len = file.metadata()?.len();
 
     let buff_size = len.min(MAX_BUFF_SIZE) as usize;
 
@@ -91,9 +78,7 @@ fn main() -> Result<()> {
         out_file.write(buff.as_ref())?;
     }
 
-    if args.decrypt {
-        out_file.set_len(len)?;
-    }
+    out_file.set_len(len)?;
 
     Ok(())
 }
