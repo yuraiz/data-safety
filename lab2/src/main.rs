@@ -1,4 +1,3 @@
-mod block_aligned_buff;
 mod crypt;
 mod decrypt;
 mod gamma;
@@ -8,7 +7,6 @@ mod transform;
 
 use std::{io::*, path::PathBuf};
 
-use block_aligned_buff::BlockAlignedBuff;
 use clap::Parser;
 use gamma::*;
 
@@ -64,12 +62,12 @@ fn main() -> Result<()> {
 
     let buff_size = len.min(MAX_BUFF_SIZE) as usize;
 
-    let mut buff = BlockAlignedBuff::new(buff_size);
+    let mut buff = block_buffer::BlockBuffer::new(buff_size);
 
     let mut prev = INIT_BLOCK;
 
     loop {
-        if buff.read_bytes(&mut file)? == 0 {
+        if buff.read_bytes_from(&mut file)? == 0 {
             break;
         }
 
