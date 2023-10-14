@@ -19,7 +19,8 @@ impl<T: Block> BlockBuffer<T> {
 
     /// Creates a new buffer allocating at least `size` bytes
     pub fn new(size: usize) -> Self {
-        let blocks = (size + 16 - size % 16) / 16;
+        let bs = Self::BLOCK_SIZE;
+        let blocks = (size + bs - size % bs) / bs;
         let buff = vec![T::default(); blocks].into_boxed_slice();
         Self { buff, filled: 0 }
     }
