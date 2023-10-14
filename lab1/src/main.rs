@@ -72,5 +72,7 @@ fn main() -> Result<()> {
         out_file.write(buff.as_ref())?;
     }
 
+    out_file.set_len(len)?;
+
     Ok(())
 }
