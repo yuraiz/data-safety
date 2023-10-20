@@ -9,3 +9,4 @@ edition = "2021"
 clap = { version = "4.4.6", features = ["derive"] }
 block-buffer = { path = "../block-buffer" }
 anyhow = "1.0.75"
+num = { version = "0.4.1", features = ["num-bigint"] }

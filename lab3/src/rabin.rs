@@ -1,89 +1,69 @@
 use crate::mics::*;
 
-#[derive(Debug, Clone, Copy)]
+use num::{bigint::BigInt, Integer, Zero};
+
+#[derive(Debug, Clone)]
 pub struct PrivateKeyInfo {
-    p: u64,
-    q: u64,
-    n: u128,
-    yp: i128,
-    yq: i128,
+    p: BigInt,
+    q: BigInt,
+    n: BigInt,
+    yp: BigInt,
+    yq: BigInt,
 }
 
 impl PrivateKeyInfo {
-    pub fn new(p: u64, q: u64) -> Self {
-        let (yp, yq) = bezouts_coeffs(p as i128, q as i128);
-        let n = p as u128 * q as u128;
+    pub fn new(p: BigInt, q: BigInt) -> Self {
+        let (yp, yq) = bezouts_coeffs(p.clone(), q.clone());
+        let n = &p * &q;
         Self { p, q, n, yp, yq }
     }
 }
 
-fn bezouts_coeffs(a: i128, b: i128) -> (i128, i128) {
+fn bezouts_coeffs(a: BigInt, b: BigInt) -> (BigInt, BigInt) {
     let (mut old_r, mut r) = (a, b);
-    let (mut old_s, mut s) = (1, 0);
-    let (mut old_t, mut t) = (0, 1);
+    let (mut old_s, mut s) = (BigInt::from(1), BigInt::zero());
+    let (mut old_t, mut t) = (BigInt::zero(), BigInt::from(1));
 
-    while r != 1 {
-        let quotient = old_r / r;
-        (old_r, r) = (r, old_r - quotient * r);
-        (old_s, s) = (s, old_s - quotient * s);
-        (old_t, t) = (t, old_t - quotient * t);
+    while r != 1.into() {
+        let quotient = &old_r / &r;
+        (old_r, r) = (r.clone(), old_r - &quotient * &r);
+        (old_s, s) = (s.clone(), old_s - &quotient * &s);
+        (old_t, t) = (t.clone(), old_t - &quotient * &t);
     }
 
     (s, t)
 }
 
-fn compute_m1_m2(c: u128, p: u64, q: u64) -> (u64, u64) {
-    let mp = modpow(c, (p as u128 + 1) / 4, p as u128);
-    let mq = modpow(c, (q as u128 + 1) / 4, q as u128);
+fn compute_m1_m2(c: BigInt, p: &BigInt, q: &BigInt) -> (BigInt, BigInt) {
+    let mp = modpow(c.clone(), (p.clone() + 1) / 4, p);
+    let mq = modpow(c, (q.clone() + 1) / 4, q);
 
-    (mp as u64, mq as u64)
+    (mp, mq)
 }
 
 fn compute_decryption_results(
-    PrivateKeyInfo { p, q, n, yp, yq }: PrivateKeyInfo,
-    mp: u64,
-    mq: u64,
-) -> [u128; 4] {
-    let yp = if yp < 0 {
-        n - yp.unsigned_abs()
-    } else {
-        yp as u128
-    } % n;
+    PrivateKeyInfo { p, q, n, yp, yq }: &PrivateKeyInfo,
+    mp: &BigInt,
+    mq: &BigInt,
+) -> [BigInt; 4] {
+    let first = yp * p * mq;
+    let second = yq * q * mp;
 
-    let yq = if yq < 0 {
-        n - yq.unsigned_abs()
-    } else {
-        yq as u128
-    } % n;
-
-    let p = p as u128;
-    let mp = mp as u128;
-    let q = q as u128;
-    let mq = mq as u128;
-
-    let rem_n = |number: u128| number.rem_euclid(n);
-
-    let mul = |a: u128, b: u128| mulmod(a, b, n);
-
-    let first = mul(mul(yp, p), mq);
-    let second = mul(mul(yq, q), mp);
-
-    let x1 = rem_n(first + second);
-    let x2 = n - x1;
-    let x3 = rem_n(first + (n - second));
-    let x4 = n - x3;
+    let x1 = (&first + &second).mod_floor(n);
+    let x2 = n - &x1;
+    let x3 = (first - second).mod_floor(n);
+    let x4 = n - &x3;
 
     [x1, x2, x3, x4]
 }
 
-pub fn decrypt_block(block: u128, key_info: PrivateKeyInfo) -> [u64; 4] {
-    let (mp, mq) = compute_m1_m2(block, key_info.p, key_info.q);
-    compute_decryption_results(key_info, mp, mq).map(|n| n as _)
+pub fn decrypt(number: BigInt, key_info: &PrivateKeyInfo) -> [BigInt; 4] {
+    let (mp, mq) = compute_m1_m2(number, &key_info.p, &key_info.q);
+    compute_decryption_results(key_info, &mp, &mq).map(|n| n as _)
 }
 
-pub fn encrypt_block(block: u64, key: u128) -> u128 {
-    let block = (block as u128) % key;
-    (block * block) % key
+pub fn encrypt(number: BigInt, key: &BigInt) -> BigInt {
+    (&number * &number) % key
 }
 
 #[cfg(test)]
@@ -92,25 +72,40 @@ mod tests {
 
     #[test]
     fn coeffs() {
-        assert_eq!(bezouts_coeffs(23, 7), (-3, 10));
+        assert_eq!(
+            bezouts_coeffs(23.into(), 7.into()),
+            ((-3).into(), 10.into())
+        );
     }
 
     #[test]
     fn coeffs_overflow() {
-        dbg!(bezouts_coeffs(119543903707171, 180252380737439));
+        dbg!(bezouts_coeffs(
+            BigInt::from_bytes_le(
+                num::bigint::Sign::Plus,
+                &119543903707171i128.to_le_bytes()[..]
+            ),
+            BigInt::from_bytes_le(
+                num::bigint::Sign::Plus,
+                &180252380737439u128.to_le_bytes()[..]
+            ),
+        ));
     }
 
     #[test]
     fn m1_m2() {
-        assert_eq!(compute_m1_m2(93, 23, 7), (1, 4))
+        assert_eq!(
+            compute_m1_m2(93.into(), &23.into(), &7.into()),
+            (1.into(), 4.into())
+        )
     }
 
     #[test]
     fn decryption_results() {
-        let key_info = PrivateKeyInfo::new(23, 7);
+        let key_info = PrivateKeyInfo::new(23.into(), 7.into());
         assert_eq!(
-            compute_decryption_results(key_info, 1, 4),
-            [116, 45, 137, 24]
+            compute_decryption_results(&key_info, &1.into(), &4.into()),
+            [116.into(), 45.into(), 137.into(), 24.into()]
         )
     }
 }

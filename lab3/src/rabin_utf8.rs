@@ -1,61 +1,95 @@
-use crate::rabin::{decrypt_block, encrypt_block, PrivateKeyInfo};
+use crate::rabin::{self, PrivateKeyInfo};
+use anyhow::Ok;
+use num::BigInt;
+use std::io::*;
 
-/// Tries to find a char inside of a set of blocks
-fn find_char(blocks: [u64; 4]) -> char {
-    fn try_into_char(block: u64) -> Option<char> {
-        let num: u32 = block.try_into().ok()?;
-        char::from_u32(num)
+fn next_substring<R: std::io::Read>(buf_reader: &mut BufReader<R>) -> anyhow::Result<String> {
+    let bytes = buf_reader.fill_buf()?;
+
+    let mut len = bytes.len().min(8);
+
+    while std::str::from_utf8(&bytes[..len]).is_err() {
+        len -= 1;
     }
 
-    blocks
-        .into_iter()
-        .flat_map(try_into_char)
-        .next()
-        .unwrap_or(char::REPLACEMENT_CHARACTER)
+    let bytes = bytes[..len].to_owned();
+
+    buf_reader.consume(len);
+
+    Ok(String::from_utf8(bytes)?)
 }
 
 pub fn encrypt<R: std::io::Read, W: std::io::Write>(
     input: R,
     output: W,
-    key: u128,
-) -> std::io::Result<()> {
-    use std::io::*;
-
-    let input = BufReader::new(input);
+    key: BigInt,
+) -> anyhow::Result<()> {
+    let mut input = BufReader::new(input);
     let mut output = BufWriter::new(output);
 
-    let encrypted_endl = &encrypt_block('\n' as u64, key).to_le_bytes();
+    loop {
+        let substring = next_substring(&mut input)?;
 
-    for line in input.lines().flatten() {
-        for ch in line.chars() {
-            let encrypted = encrypt_block(ch as u64, key);
-            output.write_all(&encrypted.to_le_bytes())?;
+        if substring.is_empty() {
+            break;
         }
-        output.write_all(encrypted_endl)?;
+
+        let number = BigInt::from_bytes_le(num::bigint::Sign::Plus, substring.as_bytes());
+
+        let number = rabin::encrypt(number, &key);
+
+        let bytes = number.to_bytes_le().1;
+
+        output.write_all(&(bytes.len() as u64).to_le_bytes())?;
+        output.write_all(&bytes)?;
     }
 
     Ok(())
 }
 
 pub fn decrypt<R: std::io::Read, W: std::io::Write>(
-    mut input: R,
+    input: R,
     output: W,
     key_info: PrivateKeyInfo,
-) -> std::io::Result<()> {
-    use std::io::*;
-
-    let mut buff = block_buffer::BlockBuffer::<u128>::new(1024);
+) -> anyhow::Result<()> {
+    let mut input = BufReader::new(input);
     let mut output = BufWriter::new(output);
 
-    buff.read_bytes_from(&mut input)?;
+    let mut buff = [0; 2048];
 
-    let mut ch_buff = [0; 4];
+    let mut iteration = || -> anyhow::Result<bool> {
+        let mut len_buf = 0u64.to_le_bytes();
+        match input.read_exact(&mut len_buf) {
+            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                return Ok(true);
+            }
+            other => other?,
+        };
 
-    for input in buff.as_blocks() {
-        let blocks = decrypt_block(*input, key_info);
-        let ch = find_char(blocks);
-        output.write_all(ch.encode_utf8(&mut ch_buff).as_bytes())?;
+        let len = u64::from_le_bytes(len_buf) as usize;
+
+        input.read_exact(&mut buff[..len])?;
+        let number = BigInt::from_bytes_le(num::bigint::Sign::Plus, &buff[..len]);
+
+        let numbers = rabin::decrypt(number, &key_info);
+
+        let valid_text = numbers
+            .into_iter()
+            .flat_map(|number| {
+                let vec = number.to_bytes_le().1;
+                String::from_utf8(vec).ok()
+            })
+            .next()
+            .ok_or(anyhow::anyhow!("No valid decryption results"))?;
+
+        output.write_all(valid_text.as_ref())?;
+
+        Ok(false)
+    };
+
+    loop {
+        if iteration()? {
+            break Ok(());
+        }
     }
-
-    Ok(())
 }

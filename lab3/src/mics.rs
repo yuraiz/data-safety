@@ -1,40 +1,16 @@
-pub fn modpow(mut base: u128, mut exp: u128, modulus: u128) -> u128 {
-    base %= modulus;
+use num::{BigInt, Integer};
 
-    let mut result = 1;
+pub fn modpow(mut base: BigInt, mut exp: BigInt, modulus: &BigInt) -> BigInt {
+    base = base.div_rem(modulus).1;
 
-    while exp > 0 {
-        if (exp & 1) != 0 {
-            result = (result * base) % modulus;
+    let mut result = BigInt::from(1);
+
+    while exp > 0.into() {
+        if exp.bit(0) {
+            result = (result * &base).div_rem(modulus).1;
         }
-        base = (base * base) % modulus;
+        base = (&base * &base).div_rem(modulus).1;
         exp >>= 1;
     }
     result
-}
-
-pub fn mulmod(a: u128, b: u128, n: u128) -> u128 {
-    let mut a = a % n;
-    let mut b = b % n;
-
-    if let Some(res) = a.checked_mul(b) {
-        return res % n;
-    }
-
-    let mut res = 0;
-
-    while b > 0 {
-        // If b is odd, add 'a' to result
-        if b % 2 == 1 {
-            res = (res + a) % n;
-        }
-
-        // Multiply 'a' with 2
-        a = (a * 2) % n;
-
-        // Divide b by 2
-        b /= 2;
-    }
-
-    res
 }
