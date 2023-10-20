@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.4.6", features = ["derive"] }
+lab1 = { path = "../lab1" }
 block-buffer = { path = "../block-buffer" }
 anyhow = "1.0.75"

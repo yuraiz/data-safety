@@ -2,6 +2,8 @@ const CHUNK_SIZE: usize = 16 * size_of::<u32>();
 
 use std::{fmt::LowerHex, mem::size_of, num::Wrapping};
 
+use crate::MyHasher;
+
 fn rol(num: Wrapping<u32>, c: u32) -> Wrapping<u32> {
     Wrapping(num.0.rotate_left(c))
 }
@@ -44,9 +46,15 @@ impl Sha1Context {
             processed_bytes: 0,
         }
     }
+}
 
-    pub fn process_chunk(&mut self, chunk: &[u8]) {
-        self.processed_bytes += CHUNK_SIZE;
+impl MyHasher for Sha1Context {
+    type Output = [u32; 5];
+
+    const CHUNK_SIZE: usize = 16 * size_of::<u32>();
+
+    fn process_chunk(&mut self, chunk: &[u8]) {
+        self.processed_bytes += Self::CHUNK_SIZE;
 
         let mut w = [0u32; 80];
 
@@ -84,7 +92,7 @@ impl Sha1Context {
         h[4] += e;
     }
 
-    pub fn finish(mut self, remainder: &[u8]) -> [u32; 5] {
+    fn finish(mut self, remainder: &[u8]) -> [u32; 5] {
         self.processed_bytes += remainder.len();
 
         let bit_len = self.processed_bytes as u64 * u8::BITS as u64;
@@ -105,21 +113,6 @@ impl Sha1Context {
         self.process_chunk(&rem_buff);
 
         self.h.map(|w| w.0)
-    }
-
-    pub fn process_chunks<'a>(&mut self, message: &'a [u8]) -> &'a [u8] {
-        let chunks = message.chunks_exact(CHUNK_SIZE);
-        let remainder = chunks.remainder();
-
-        chunks.for_each(|c| self.process_chunk(c));
-
-        remainder
-    }
-
-    #[allow(unused)]
-    pub fn process_to_end(mut self, message: &[u8]) -> [u32; 5] {
-        let remainder = self.process_chunks(message);
-        self.finish(remainder)
     }
 }
 
