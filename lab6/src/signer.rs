@@ -65,6 +65,40 @@ impl Signer {
     }
 }
 
+impl std::str::FromStr for Signer {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, ()> {
+        let nums: Vec<BigInt> = s
+            .split_ascii_whitespace()
+            .map(BigInt::from_str)
+            .flatten()
+            .collect();
+
+        let [p, a, b, q, p_x, p_y] = nums.try_into().map_err(|_| ())?;
+
+        Ok(Self::new(p, a, b, q, p_x, p_y))
+    }
+}
+
+impl std::fmt::Display for Signer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            point:
+                ECPoint {
+                    x: p_x,
+                    y: p_y,
+                    a,
+                    b,
+                    p,
+                },
+            q,
+        } = self;
+
+        write!(f, "{p} {a} {b} {q} {p_x} {p_y}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

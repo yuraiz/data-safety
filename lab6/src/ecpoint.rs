@@ -36,6 +36,29 @@ impl ECPoint {
     }
 }
 
+impl std::str::FromStr for ECPoint {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let nums: Vec<BigInt> = s
+            .split_ascii_whitespace()
+            .map(BigInt::from_str)
+            .flatten()
+            .collect();
+
+        let [x, y, a, b, p] = nums.try_into().map_err(|_| ())?;
+
+        Ok(Self { x, y, a, b, p })
+    }
+}
+
+impl std::fmt::Display for ECPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { x, y, a, b, p } = self;
+
+        write!(f, "{x} {y} {a} {b} {p}")
+    }
+}
 impl std::ops::Add for ECPoint {
     type Output = Self;
 
